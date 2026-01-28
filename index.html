@@ -2,61 +2,57 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>AM - Cornerstone RGB + Progres Bar</title>
+    <title>AM - Cornerstone RGB Reactive</title>
     <style>
         body {
             margin: 0; background-color: #000; color: white;
             font-family: 'Georgia', serif; overflow: hidden;
             display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+            transition: background-color 0.1s ease; /* Para que el destello sea suave */
         }
-        canvas { width: 95%; max-width: 900px; z-index: 1; }
+        canvas { width: 95%; max-width: 900px; z-index: 1; pointer-events: none; }
         
         #overlay {
             position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.95);
             display: flex; justify-content: center; align-items: center; z-index: 100;
             cursor: pointer; text-transform: uppercase; letter-spacing: 6px;
         }
-        .play-btn { border: 2px solid white; padding: 15px 40px; border-radius: 50px; font-weight: bold; transition: 0.3s; }
-        .play-btn:hover { background: white; color: black; box-shadow: 0 0 20px rgba(255,255,255,0.5); }
+        .play-btn { border: 2px solid white; padding: 15px 40px; border-radius: 50px; font-weight: bold; }
 
-        /* Contenedor de la barra de progreso */
         #progress-container {
-            position: absolute; bottom: 30px; width: 80%; max-width: 600px;
+            position: absolute; bottom: 40px; width: 80%; max-width: 600px;
             height: 6px; background: rgba(255,255,255,0.1);
-            border-radius: 10px; cursor: pointer; z-index: 60;
-            display: none; /* Se muestra al iniciar */
+            border-radius: 10px; cursor: pointer; z-index: 60; display: none;
         }
-        #progress-bar {
-            height: 100%; width: 0%; background: white;
-            border-radius: 10px; transition: width 0.1s linear;
-            box-shadow: 0 0 10px rgba(255,255,255,0.5);
-        }
+        #progress-bar { height: 100%; width: 0%; border-radius: 10px; transition: width 0.1s linear; }
 
         #final-screen {
             position: absolute; display: flex; flex-direction: column;
             align-items: center; justify-content: center; opacity: 0;
-            transition: opacity 4s ease; z-index: 50; pointer-events: none; text-align: center;
+            transition: opacity 3s ease; z-index: 50; pointer-events: none;
         }
         #final-screen.visible { opacity: 1; }
-        #final-image { width: 300px; max-width: 80%; border-radius: 20px; margin-bottom: 25px; box-shadow: 0 0 40px rgba(255,255,255,0.15); animation: float 3s ease-in-out infinite; }
+
+        #final-image {
+            width: 280px; border-radius: 20px; margin-bottom: 20px;
+            box-shadow: 0 0 40px rgba(255,255,255,0.2);
+            animation: float 3s ease-in-out infinite;
+        }
+
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
-        #final-text { font-size: 42px; font-style: italic; letter-spacing: 5px; text-shadow: 0 0 25px rgba(255,255,255,0.7); }
+        #final-text { font-size: 38px; font-style: italic; letter-spacing: 4px; text-shadow: 0 0 20px rgba(255,255,255,0.8); }
     </style>
 </head>
 <body>
 
-    <div id="overlay">
-        <div class="play-btn">REPRODUCIR CORNERSTONE</div>
-    </div>
+    <div id="overlay"><div class="play-btn">REPRODUCIR CORNERSTONE</div></div>
     
     <canvas id="canvas"></canvas>
 
-    <div id="progress-container">
-        <div id="progress-bar"></div>
-    </div>
+    <div id="progress-container"><div id="progress-bar"></div></div>
 
     <div id="final-screen">
-        <img src="1000105148.jpg" id="final-image" alt="Imagen Final">
+        <img src="gato_mago.jpg" id="final-image" alt="Gato Mago">
         <div id="final-text">Sueña bonito</div>
     </div>
 
@@ -71,16 +67,12 @@
         canvas.width = 1200; canvas.height = 600;
 
         let audioCtx, analyser, dataArray, audioElem;
-        let isStarted = false;
-        let isEnding = false;
-        let hue = 0;
+        let isStarted = false, isEnding = false, hue = 0;
 
         function init() {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             analyser = audioCtx.createAnalyser();
-            
-            audioElem = new Audio();
-            audioElem.src = 'cornerstone.mp3'; 
+            audioElem = new Audio('cornerstone.mp3');
             audioElem.crossOrigin = "anonymous";
             
             const source = audioCtx.createMediaElementSource(audioElem);
@@ -99,74 +91,71 @@
                 isEnding = true;
                 finalScreen.classList.add('visible');
                 progressContainer.style.display = 'none';
+                document.body.style.backgroundColor = "#000"; // Fondo negro al final
             };
-
             draw();
         }
 
-        // Función para saltar en la canción al hacer clic en la barra
         progressContainer.addEventListener('click', (e) => {
             if (!isStarted) return;
-            const width = progressContainer.clientWidth;
-            const clickX = e.offsetX;
-            const duration = audioElem.duration;
-            audioElem.currentTime = (clickX / width) * duration;
-            
-            // Si adelantamos cuando ya había terminado, reseteamos el estado final
-            if (isEnding) {
-                isEnding = false;
-                finalScreen.classList.remove('visible');
-                fadeAmplitud = 1;
+            audioElem.currentTime = (e.offsetX / progressContainer.clientWidth) * audioElem.duration;
+            if (isEnding) { 
+                isEnding = false; 
+                finalScreen.classList.remove('visible'); 
+                fadeAmplitud = 1; 
+                progressContainer.style.display = 'block'; 
             }
         });
 
-        let timeOffset = 0;
-        let fadeAmplitud = 1;
+        let timeOffset = 0, fadeAmplitud = 1;
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
             let volume = 0;
-            hue = (hue + 0.5) % 360; 
+            let bass = 0;
+            
+            hue = (hue + 0.6) % 360; 
             let currentColor = `hsla(${hue}, 80%, 70%, ${fadeAmplitud})`;
 
             if (isStarted) {
                 analyser.getByteFrequencyData(dataArray);
+                
+                // Promedio general de volumen
                 volume = dataArray.reduce((a, b) => a + b) / dataArray.length;
                 
-                // Actualizar barra de progreso visualmente
-                const progressPercent = (audioElem.currentTime / audioElem.duration) * 100;
-                progressBar.style.width = progressPercent + "%";
-                progressBar.style.background = currentColor; // La barra también cambia de color
+                // Analizar los bajos (primeras frecuencias)
+                for(let i = 0; i < 10; i++) { bass += dataArray[i]; }
+                bass = bass / 10;
 
-                if (isEnding) {
-                    fadeAmplitud -= 0.003;
-                    if (fadeAmplitud < 0) fadeAmplitud = 0;
+                // Si el bajo supera un umbral, iluminamos el fondo
+                if (!isEnding && bass > 180) {
+                    let intensity = (bass - 180) / 100; // Nivel de luz
+                    document.body.style.backgroundColor = `hsla(${hue}, 40%, ${10 + (intensity * 15)}%, 1)`;
+                } else if (!isEnding) {
+                    document.body.style.backgroundColor = "#000";
                 }
+
+                progressBar.style.width = (audioElem.currentTime / audioElem.duration) * 100 + "%";
+                progressBar.style.background = currentColor;
+
+                if (isEnding) { fadeAmplitud -= 0.005; if (fadeAmplitud < 0) fadeAmplitud = 0; }
             }
 
             ctx.strokeStyle = currentColor;
             ctx.shadowColor = currentColor;
             ctx.shadowBlur = 15 * fadeAmplitud;
             ctx.lineWidth = 5 + (volume / 12);
-            ctx.lineCap = 'round';
             ctx.beginPath();
-
-            const midY = canvas.height / 2;
 
             for (let x = 0; x <= canvas.width; x++) {
                 const normX = (x / canvas.width) * 2 - 1;
                 const envelope = Math.pow(Math.sin(Math.PI * (normX + 1) / 2), 2) * Math.pow(Math.sin(Math.PI * (normX + 1)), 2);
                 const amplitude = (165 + (volume * 1.8)) * envelope * fadeAmplitud;
-                const oscillation = Math.sin(normX * 45 + timeOffset);
-                const y = midY + (oscillation * amplitude);
-
-                if (x === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
+                const y = (canvas.height / 2) + Math.sin(normX * 45 + timeOffset) * amplitude;
+                if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
             }
-
             ctx.stroke();
-            timeOffset -= (0.09 + (volume / 650)) * fadeAmplitud; 
+            timeOffset -= (0.1 + (volume / 600)) * fadeAmplitud; 
             requestAnimationFrame(draw);
         }
 
