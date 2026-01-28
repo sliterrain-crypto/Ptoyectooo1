@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>AM - Cornerstone Fixed</title>
+    <style>
+        body {
+            margin: 0; background-color: #000; color: white;
+            font-family: 'Georgia', serif; overflow: hidden;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+        canvas { width: 95%; max-width: 900px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.1)); }
+        
+        #lyrics-container {
+            position: absolute; bottom: 10%; width: 85%; text-align: center;
+            height: 100px; pointer-events: none;
+        }
+        .lyric-line {
+            font-size: 26px; font-style: italic; letter-spacing: 1.5px;
+            opacity: 0; transform: translateY(15px); transition: all 1s ease;
+        }
+        .lyric-line.active { opacity: 1; transform: translateY(0); }
+
+        #overlay {
+            position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.95);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;
+            cursor: pointer; text-transform: uppercase; letter-spacing: 6px;
+        }
+        .play-btn { border: 2px solid white; padding: 15px 40px; border-radius: 50px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="overlay">
+        <div class="play-btn">REPRODUCIR CORNERSTONE</div>
+    </div>
+    
+    <canvas id="canvas"></canvas>
+    
+    <div id="lyrics-container">
+        <div id="lyric-text" class="lyric-line"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('overlay');
+        const lyricText = document.getElementById('lyric-text');
+
+        canvas.width = 1200; canvas.height = 600;
+
+        const lyrics = [
+            { time: 10, text: "I thought I saw you in the Battleship" },
+            { time: 14, text: "But it was only a lookalike" },
+            { time: 18, text: "She was close enough to be your ghost" },
+            { time: 24, text: "But she didn't have your nose" },
+            { time: 28, text: "And then I introduced myself" },
+            { time: 35, text: "She said, 'I'm not the girl you think I am'" },
+            { time: 44, text: "I saw you at the Rusty Hook" },
+            { time: 77, text: "Tell me, where's your hiding place?" },
+            { time: 84, text: "I'm worried I'll forget your face" }
+        ];
+
+        let audioCtx, analyser, dataArray, audioElem;
+        let isStarted = false;
+
+        function init() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            
+            audioElem = new Audio();
+            audioElem.src = 'cornerstone.mp3'; 
+            audioElem.crossOrigin = "anonymous";
+            
+            const source = audioCtx.createMediaElementSource(audioElem);
+            source.connect(analyser);
+            analyser.connect(audioCtx.destination);
+            
+            analyser.fftSize = 256; // Tamaño más pequeño para mayor sensibilidad
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            
+            audioElem.play();
+            overlay.style.display = 'none';
+            isStarted = true;
+            draw();
+        }
+
+        let timeOffset = 0;
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let volume = 0;
+            let color = 'white';
+
+            if (isStarted) {
+                analyser.getByteFrequencyData(dataArray);
+                // Promedio de energía para que la onda siempre se mueva
+                volume = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                
+                let curTime = audioElem.currentTime;
+                updateLyrics(curTime);
+
+                // Forzamos el cambio de color si el tiempo es mayor a 77s
+                if (curTime >= 77) {
+                    color = '#ff3333'; // Rojo intenso
+                }
+            }
+
+            ctx.strokeStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = volume / 2; // El brillo reacciona al volumen
+            ctx.lineWidth = 4 + (volume / 20); // El grosor cambia con la música
+            ctx.beginPath();
+
+            const midY = canvas.height / 2;
+
+            for (let x = 0; x <= canvas.width; x++) {
+                const normX = (x / canvas.width) * 2 - 1;
+                const envelope = Math.pow(Math.sin(Math.PI * (normX + 1) / 2), 2) * Math.pow(Math.sin(Math.PI * (normX + 1)), 2);
+                
+                // Si volume es 0 (silencio), igual damos una amplitud base de 150
+                const amplitude = (150 + (volume * 1.5)) * envelope;
+                
+                const oscillation = Math.sin(normX * 45 + timeOffset);
+                const y = midY + (oscillation * amplitude);
+
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+
+            ctx.stroke();
+            timeOffset -= 0.1 + (volume / 500); 
+            requestAnimationFrame(draw);
+        }
+
+        function updateLyrics(currentTime) {
+            const activeLine = lyrics.findLast(l => currentTime >= l.time);
+            if (activeLine && lyricText.innerText !== activeLine.text) {
+                lyricText.innerText = activeLine.text;
+                lyricText.classList.add('active');
+            }
+        }
+
+        overlay.addEventListener('click', () => { if (!isStarted) init(); });
+    </script>
+</body>
+</html>
