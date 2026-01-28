@@ -2,57 +2,74 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>AM - Cornerstone "Sueña Bonito"</title>
+    <title>AM - Cornerstone RGB</title>
     <style>
         body {
             margin: 0; background-color: #000; color: white;
             font-family: 'Georgia', serif; overflow: hidden;
             display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
         }
-        canvas { width: 95%; max-width: 900px; }
+        canvas { width: 95%; max-width: 900px; z-index: 1; }
         
         #overlay {
             position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.95);
-            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;
+            display: flex; justify-content: center; align-items: center; z-index: 100;
             cursor: pointer; text-transform: uppercase; letter-spacing: 6px;
         }
-        .play-btn { border: 2px solid white; padding: 15px 40px; border-radius: 50px; font-weight: bold; transition: 0.3s; }
-        .play-btn:hover { background: white; color: black; }
+        .play-btn { border: 2px solid white; padding: 15px 40px; border-radius: 50px; font-weight: bold; }
 
-        /* Estilo para el mensaje final */
-        #final-message {
+        /* Contenedor Final */
+        #final-screen {
             position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 3s ease;
+            z-index: 50;
+            pointer-events: none;
+        }
+        #final-screen.visible { opacity: 1; }
+
+        #final-image {
+            width: 250px; /* Ajusta el tamaño de tu imagen aquí */
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 30px rgba(255,255,255,0.2);
+        }
+
+        #final-text {
             font-size: 40px;
             font-style: italic;
             letter-spacing: 4px;
-            opacity: 0;
-            transition: opacity 3s ease;
-            text-shadow: 0 0 20px rgba(255,255,255,0.6);
-            pointer-events: none;
+            text-shadow: 0 0 20px rgba(255,255,255,0.8);
         }
-        #final-message.visible { opacity: 1; }
     </style>
 </head>
 <body>
 
-    <div id="overlay">
-        <div class="play-btn">REPRODUCIR CORNERSTONE</div>
-    </div>
+    <div id="overlay"><div class="play-btn">REPRODUCIR CORNERSTONE</div></div>
     
     <canvas id="canvas"></canvas>
-    <div id="final-message">Sueña bonito</div>
+
+    <div id="final-screen">
+        <img src="gato_mago.jpg" id="final-image" alt="Gato Mago">
+        <div id="final-text">Sueña bonito</div>
+    </div>
 
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const overlay = document.getElementById('overlay');
-        const finalMsg = document.getElementById('final-message');
+        const finalScreen = document.getElementById('final-screen');
 
         canvas.width = 1200; canvas.height = 600;
 
         let audioCtx, analyser, dataArray, audioElem;
         let isStarted = false;
         let isEnding = false;
+        let hue = 0;
 
         function init() {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -73,43 +90,39 @@
             overlay.style.display = 'none';
             isStarted = true;
 
-            // Detectar cuando la canción termina
+            // Al terminar la canción
             audioElem.onended = () => {
                 isEnding = true;
-                finalMsg.classList.add('visible');
+                finalScreen.classList.add('visible');
             };
 
             draw();
         }
 
         let timeOffset = 0;
-        let fadeAmplitud = 1; // Para suavizar la onda al final
+        let fadeAmplitud = 1;
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             let volume = 0;
-            let color = 'white';
+            hue = (hue + 0.5) % 360; // RGB lento
+            let currentColor = `hsla(${hue}, 80%, 70%, ${fadeAmplitud})`;
 
             if (isStarted) {
                 analyser.getByteFrequencyData(dataArray);
                 volume = dataArray.reduce((a, b) => a + b) / dataArray.length;
                 
-                let curTime = audioElem.currentTime;
-                if (curTime >= 77 && !isEnding) color = '#ff3333'; 
-
-                // Si la canción está terminando, bajamos la intensidad de la onda
                 if (isEnding) {
-                    fadeAmplitud -= 0.005;
+                    fadeAmplitud -= 0.004;
                     if (fadeAmplitud < 0) fadeAmplitud = 0;
-                    color = `rgba(255, 255, 255, ${fadeAmplitud})`;
                 }
             }
 
-            ctx.strokeStyle = color;
-            ctx.shadowColor = color;
-            ctx.shadowBlur = (volume / 2) * fadeAmplitud;
-            ctx.lineWidth = 4 + (volume / 20);
+            ctx.strokeStyle = currentColor;
+            ctx.shadowColor = currentColor;
+            ctx.shadowBlur = (15) * fadeAmplitud;
+            ctx.lineWidth = 5 + (volume / 15);
             ctx.beginPath();
 
             const midY = canvas.height / 2;
@@ -117,10 +130,7 @@
             for (let x = 0; x <= canvas.width; x++) {
                 const normX = (x / canvas.width) * 2 - 1;
                 const envelope = Math.pow(Math.sin(Math.PI * (normX + 1) / 2), 2) * Math.pow(Math.sin(Math.PI * (normX + 1)), 2);
-                
-                // La onda se desvanece al final
-                const amplitude = (150 + (volume * 1.5)) * envelope * fadeAmplitud;
-                
+                const amplitude = (160 + (volume * 1.8)) * envelope * fadeAmplitud;
                 const oscillation = Math.sin(normX * 45 + timeOffset);
                 const y = midY + (oscillation * amplitude);
 
@@ -129,9 +139,7 @@
             }
 
             ctx.stroke();
-            
-            // La velocidad también se detiene gradualmente
-            timeOffset -= (0.1 + (volume / 500)) * fadeAmplitud; 
+            timeOffset -= (0.09 + (volume / 600)) * fadeAmplitud; 
             requestAnimationFrame(draw);
         }
 
