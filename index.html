@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>AM - Cornerstone Fireworks Fixed</title>
+    <title>AM - Cornerstone Fireworks Minimal</title>
     <style>
         body {
             margin: 0; background-color: #000; color: white;
@@ -22,6 +22,7 @@
             cursor: pointer; text-transform: uppercase; letter-spacing: 6px;
         }
         .play-btn { border: 2px solid white; padding: 15px 40px; border-radius: 50px; font-weight: bold; transition: 0.3s; }
+        .play-btn:hover { background: white; color: black; box-shadow: 0 0 20px rgba(255,255,255,0.5); }
 
         #progress-container {
             position: absolute; bottom: 40px; width: 80%; max-width: 500px;
@@ -29,14 +30,6 @@
             border-radius: 10px; cursor: pointer; z-index: 60; display: none;
         }
         #progress-bar { height: 100%; width: 0%; border-radius: 10px; transition: width 0.1s linear; }
-
-        #final-screen {
-            position: absolute; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; opacity: 0;
-            transition: opacity 4s ease; z-index: 50; pointer-events: none;
-        }
-        #final-screen.visible { opacity: 1; }
-        #final-text { font-size: 45px; font-style: italic; letter-spacing: 8px; text-shadow: 0 0 30px rgba(255,255,255,0.8); }
     </style>
 </head>
 <body>
@@ -47,13 +40,10 @@
 
     <div id="progress-container"><div id="progress-bar"></div></div>
 
-    <div id="final-screen"><div id="final-text">Sueña bonito</div></div>
-
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const overlay = document.getElementById('overlay');
-        const finalScreen = document.getElementById('final-screen');
         const progressContainer = document.getElementById('progress-container');
         const progressBar = document.getElementById('progress-bar');
 
@@ -118,7 +108,7 @@
             overlay.style.display = 'none';
             progressContainer.style.display = 'block';
             isStarted = true;
-            audioElem.onended = () => { isEnding = true; finalScreen.classList.add('visible'); progressContainer.style.display = 'none'; };
+            audioElem.onended = () => { isEnding = true; progressContainer.style.display = 'none'; };
             draw();
         }
 
@@ -131,13 +121,12 @@
         progressContainer.addEventListener('click', (e) => {
             if (!isStarted) return;
             audioElem.currentTime = (e.offsetX / progressContainer.clientWidth) * audioElem.duration;
-            if (isEnding) { isEnding = false; finalScreen.classList.remove('visible'); fadeAmplitud = 1; progressContainer.style.display = 'block'; }
+            if (isEnding) { isEnding = false; fadeAmplitud = 1; progressContainer.style.display = 'block'; }
         });
 
         let timeOffset = 0, fadeAmplitud = 1;
 
         function draw() {
-            // Fondo con rastro para que los fuegos se vean mejor
             ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
             ctx.fillRect(0, 0, width, height);
             
@@ -161,7 +150,6 @@
                 if (isEnding) { fadeAmplitud -= 0.005; if (fadeAmplitud < 0) fadeAmplitud = 0; }
             }
 
-            // --- ONDA TAMAÑO ORIGINAL CORREGIDA ---
             ctx.strokeStyle = currentColor;
             ctx.lineWidth = 5 + (volume / 12);
             ctx.shadowBlur = 10 * fadeAmplitud;
@@ -169,32 +157,25 @@
             ctx.beginPath();
             
             const midY = height / 2;
-            // Limitamos el ancho visual de la onda para que no ocupe toda la pantalla
             const waveWidth = Math.min(width * 0.9, 850); 
             const startX = (width - waveWidth) / 2;
 
-            // Línea recta a la izquierda
             ctx.moveTo(0, midY);
             ctx.lineTo(startX, midY);
 
-            // La onda centrada
             for (let i = 0; i <= waveWidth; i++) {
                 const x = startX + i;
                 const normX = (i / waveWidth) * 2 - 1;
                 const envelope = Math.pow(Math.sin(Math.PI * (normX + 1) / 2), 2) * Math.pow(Math.sin(Math.PI * (normX + 1)), 2);
-                
-                // Amplitud controlada para que no sea gigante
                 const amplitude = 170 * envelope * fadeAmplitud + (volume * 1.5 * envelope * fadeAmplitud);
                 const y = midY + Math.sin(normX * 45 + timeOffset) * amplitude;
                 ctx.lineTo(x, y);
             }
 
-            // Línea recta a la derecha
             ctx.lineTo(width, midY);
             ctx.stroke();
-            ctx.shadowBlur = 0; // Quitamos sombra para las partículas
+            ctx.shadowBlur = 0;
 
-            // Dibujar Partículas
             particles.forEach((p, i) => {
                 if (p.alpha <= 0) { particles.splice(i, 1); } else { p.update(); p.draw(); }
             });
